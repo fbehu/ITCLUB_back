@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import ChangePasswordSerializer
+from .serializers import ChangePasswordSerializer, AdminListSerializer
 from .permissions import IsAdmin
 
 from .models import User
@@ -231,7 +231,7 @@ class AdminsListView(generics.ListAPIView):
     GET /users/admins/
     """
     permission_classes = [IsAuthenticated]
-    serializer_class = UserSerializer
+    serializer_class = AdminListSerializer
 
     def get_queryset(self):
         return User.objects.filter(role='admin').order_by('-created_at')        

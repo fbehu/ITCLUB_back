@@ -20,17 +20,17 @@ def create_custom_jwt_for_user(user):
 
 
 # ============================
-#  BASE64 ga o‘girish fieldi
+#  BASE64 ga o'girish fieldi
 # ============================
 class ImageToBase64Field(serializers.ImageField):
     def to_internal_value(self, data):
-        # Agar fayl yuborilgan bo‘lsa
+        # Agar fayl yuborilgan bo'lsa
         if hasattr(data, "read"):
             file_content = data.read()
             encoded_string = base64.b64encode(file_content).decode("utf-8")
             return encoded_string
 
-        # Agar base64 string yuborilgan bo‘lsa
+        # Agar base64 string yuborilgan bo'lsa
         return data
 
 
@@ -88,10 +88,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         uuid = attrs.get("uuid")
 
         if User.objects.filter(username=username).exists():
-            raise serializers.ValidationError({"username": "❌ Bu username allaqachon ro‘yxatdan o‘tgan."})
+            raise serializers.ValidationError({"username": "❌ Bu username allaqachon ro'yxatdan o'tgan."})
 
         if User.objects.filter(phone_number=phone_number).exists():
-            raise serializers.ValidationError({"phone_number": "❌ Bu telefon raqam allaqachon ro‘yxatdan o‘tgan."})
+            raise serializers.ValidationError({"phone_number": "❌ Bu telefon raqam allaqachon ro'yxatdan o'tgan."})
 
         if User.objects.filter(uuid=uuid).exists():
             raise serializers.ValidationError({"uuid": "❌ Bu QR kod allaqachon boshqa user uchun ishlatilgan."})
@@ -148,3 +148,17 @@ class ChangePasswordSerializer(serializers.Serializer):
         if attrs.get("new_password") != attrs.get("confirm_password"):
             raise serializers.ValidationError({"new_password": "Yangi parollar mos emas."})
         return attrs
+
+
+# ============================
+#  ADMIN LIST SERIALIZER
+# ============================
+class AdminListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "photo",
+        ]

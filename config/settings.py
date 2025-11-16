@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     # Custom apps
     "apps.common",
     "apps.users",
+    "apps.chat",
 
     # Swagger
     "drf_yasg",
@@ -130,12 +131,12 @@ DATABASES = {
 
 
 # Sqlite uchun sozlama
-#DATABASES = {
+# DATABASES = {
 #    'default': {
 #        'ENGINE': 'django.db.backends.sqlite3',
 #        'NAME': BASE_DIR / 'db.sqlite3',
 #    }
-#}
+# }
 
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",

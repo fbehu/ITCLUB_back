@@ -3,10 +3,11 @@ from .views import (
     LoginView, ProfileView, LogoutView, ChangePasswordView, 
     TeacherOnlyUserListView, AdminUserUpdateView, UserStatisticsAPIView, 
     AdminChangeUserPasswordAPIView, AdminCreateUserAPIView,
-    AdminCheckUserAPIView, # RegisterView, 
+    AdminCheckUserAPIView, AdminsListView, # RegisterView, 
 )
 urlpatterns = [
     path("users/", TeacherOnlyUserListView.as_view(), name="user-list"),
+    path("admins/", AdminsListView.as_view(), name="admin-list"),
     path("add/", AdminCreateUserAPIView.as_view(), name="admin-create-user"),
     path("check-users/", AdminCheckUserAPIView.as_view(), name="admin-check-user"),
     path("users/<uuid:pk>/", AdminUserUpdateView.as_view(), name="user-detail"),

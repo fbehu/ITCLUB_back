@@ -223,3 +223,16 @@ class AdminCheckUserAPIView(generics.ListAPIView):
         if uuid is not None:
             return User.objects.filter(uuid=uuid)
         return User.objects.none()
+    
+
+class AdminsListView(generics.ListAPIView):
+    """
+    Admin foydalanuvchilar ro'yxati
+    GET /users/admins/
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+    serializer_class = UserSerializer
+
+    def get_queryset(self):
+        return User.objects.filter(role='admin').order_by('-created_at')        
+    

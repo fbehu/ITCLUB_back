@@ -230,7 +230,7 @@ class AdminsListView(generics.ListAPIView):
     Admin foydalanuvchilar ro'yxati
     GET /users/admins/
     """
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAuthenticated]
     serializer_class = UserSerializer
 
     def get_queryset(self):

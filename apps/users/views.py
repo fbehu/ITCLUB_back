@@ -110,10 +110,10 @@ class TeacherOnlyUserListView(generics.ListAPIView):
 
     queryset = User.objects.exclude(phone_number='+998900748737').order_by('-created_at')
 
-    filterset_class = UserFilter
     filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_class = UserFilter
     ordering_fields = ['first_name', 'last_name', 'email', 'created_at']
-    ordering = ['-created_at'] 
+    ordering = ['-created_at']
 
 
 class AdminCreateUserAPIView(generics.CreateAPIView):

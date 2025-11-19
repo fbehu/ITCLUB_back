@@ -8,7 +8,9 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import ChangePasswordSerializer, AdminListSerializer
 from .permissions import IsAdmin
-
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import OrderingFilter
+from .filters import UserFilter
 from .models import User
 from .serializers import UserSerializer, RegisterSerializer, LoginSerializer
 from django.db.models.query import QuerySet
@@ -101,14 +103,17 @@ class ChangePasswordView(APIView):
 
 
 
-
 class TeacherOnlyUserListView(generics.ListAPIView):
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
     pagination_class = StandardResultsSetPagination
 
-    def get_queryset(self):
-        return User.objects.exclude(phone_number='+998900748737').order_by('-created_at')
+    queryset = User.objects.exclude(phone_number='+998900748737').order_by('-created_at')
+
+    filterset_class = UserFilter
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    ordering_fields = ['first_name', 'last_name', 'email', 'created_at']
+    ordering = ['-created_at'] 
 
 
 class AdminCreateUserAPIView(generics.CreateAPIView):

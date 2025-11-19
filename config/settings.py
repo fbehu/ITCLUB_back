@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-&gis75^+e$m4#f66)h%szqim!l$yvr5qj_i#8)+s!)y1-abrba'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ["ubsitclub.uz", "www.ubsitclub.uz", "api.ubsitclub.uz", "127.0.0.1", "localhost", "91.210.106.114"]
 
@@ -134,7 +134,7 @@ DATABASES = {
 
 
 # Sqlite uchun sozlama
-# DATABASES = {
+# DATABASES = {   
 #    'default': {
 #        'ENGINE': 'django.db.backends.sqlite3',
 #        'NAME': BASE_DIR / 'db.sqlite3',

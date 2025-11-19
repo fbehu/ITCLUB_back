@@ -24,9 +24,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-&gis75^+e$m4#f66)h%szqim!l$yvr5qj_i#8)+s!)y1-abrba'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = ["ubsitclub.uz", "www.ubsitclub.uz", "api.ubsitclub.uz", 127.0.0.1, "localhost", 91.210.106.114]
 
 
 # Application definition
@@ -69,12 +69,13 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True
-# CORS_ALLOWED_ORIGINS = [
-#     "http://127.0.0.1:8080",
-#     "http://192.168.10.189:8000",
-#     "http://192.168.10.189:8080",
-# ]
+# CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = [
+    "https://ubsitclub.uz",
+    "https://www.ubsitclub.uz",
+    "https://api.ubsitclub.uz",
+    "http://91.210.106.114",
+]
 
 CORS_ALLOW_HEADERS = [
     'content-type',

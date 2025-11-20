@@ -9,7 +9,7 @@ class UserAdmin(BaseUserAdmin):
     form = CustomUserChangeForm
     add_form = CustomUserCreationForm
 
-    list_display = ('username', 'phone_number', 'email', 'is_active', 'is_staff')
+    list_display = ('uuid', 'username', 'phone_number', 'email', 'is_active', 'is_staff')
     list_filter = ('is_staff', 'is_superuser', 'is_active', 'role')
 
     fieldsets = (

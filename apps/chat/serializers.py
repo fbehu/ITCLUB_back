@@ -2,7 +2,10 @@ from rest_framework import serializers
 from .models import Message
 from apps.users.models import User
 from django.db.models import Q, Count
-
+import os
+from django.conf import settings
+import mimetypes
+import base64
 
 class MessageSerializer(serializers.ModelSerializer):
     """
@@ -170,6 +173,8 @@ class UnreadCountSerializer(serializers.Serializer):
 
 
 class ConversationUserSerializer(serializers.Serializer):
+    image_qrkod = serializers.SerializerMethodField()
+
     """
     Conversation users serializer o'qilmagan xabar soni bilan
     """
@@ -181,7 +186,7 @@ class ConversationUserSerializer(serializers.Serializer):
     first_name = serializers.CharField(required=False, allow_blank=True)
     last_name = serializers.CharField(required=False, allow_blank=True)
     email = serializers.EmailField(required=False, allow_blank=True)
-    image_qrkod = serializers.SerializerMethodField()
+    image_qrkod = serializers.CharField()
     tg_username = serializers.CharField(required=False, allow_blank=True)
     level = serializers.CharField(required=False, allow_blank=True)
     course = serializers.CharField(required=False, allow_blank=True)
@@ -194,12 +199,60 @@ class ConversationUserSerializer(serializers.Serializer):
     unread_message_count = serializers.SerializerMethodField()
     
     def get_image_qrkod(self, obj):
-        if obj.image_qrkod:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.image_qrkod.url)
-            return obj.image_qrkod.url
+        """
+        Return base64 data URI for QR image:
+        - Prefer file in MEDIA_ROOT/qrcodesall whose filename starts with obj.uuid (e.g. ITC100.png)
+        - Fallback to obj.image_qrkod (ImageField) if present
+        - Return None if no image available
+        """
+        # prefer uuid-based file lookup
+        uuid_val = getattr(obj, "uuid", None)
+        qr_dir = os.path.join(settings.MEDIA_ROOT, "qrcodesall")
+
+        def _encode_file(path):
+            try:
+                with open(path, "rb") as f:
+                    data = f.read()
+                mime, _ = mimetypes.guess_type(path)
+                if not mime:
+                    mime = "application/octet-stream"
+                b64 = base64.b64encode(data).decode("utf-8")
+                return f"data:{mime};base64,{b64}"
+            except Exception:
+                return None
+
+        if uuid_val:
+            try:
+                for fname in os.listdir(qr_dir):
+                    if fname.startswith(str(uuid_val)):
+                        full = os.path.join(qr_dir, fname)
+                        if os.path.isfile(full):
+                            return _encode_file(full)
+            except FileNotFoundError:
+                pass  # qrcodesall folder not present
+
+        # fallback: use image_qrkod ImageField on the model if set
+        image_field = getattr(obj, "image_qrkod", None)
+        if image_field:
+            try:
+                path = image_field.path
+                if os.path.isfile(path):
+                    return _encode_file(path)
+            except Exception:
+                # image_field may be a URL-only field or missing file
+                try:
+                    # try to resolve by MEDIA_ROOT + name
+                    name = getattr(image_field, "name", None)
+                    if name:
+                        path = os.path.join(settings.MEDIA_ROOT, name)
+                        if os.path.isfile(path):
+                            return _encode_file(path)
+                except Exception:
+                    pass
+
         return None
+
+
     
     def get_photo(self, obj):
         if obj.photo:

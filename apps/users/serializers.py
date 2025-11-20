@@ -1,9 +1,12 @@
+import os
+import mimetypes
+import base64
+from django.conf import settings
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from .models import User
 from drf_extra_fields.fields import Base64ImageField
 from rest_framework_simplejwt.tokens import RefreshToken
-import base64
 
 
 def create_custom_jwt_for_user(user):
@@ -38,6 +41,7 @@ class ImageToBase64Field(serializers.ImageField):
 #  USER SERIALIZER
 # ============================
 class UserSerializer(serializers.ModelSerializer):
+    image_qrkod = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -60,6 +64,60 @@ class UserSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def get_image_qrkod(self, obj):
+        """
+        Return base64 data URI for QR image:
+        - Prefer file in MEDIA_ROOT/qrcodesall whose filename starts with obj.uuid (e.g. ITC100.png)
+        - Fallback to obj.image_qrkod (ImageField) if present
+        - Return None if no image available
+        """
+        # prefer uuid-based file lookup
+        uuid_val = getattr(obj, "uuid", None)
+        qr_dir = os.path.join(settings.MEDIA_ROOT, "qrcodesall")
+
+        def _encode_file(path):
+            try:
+                with open(path, "rb") as f:
+                    data = f.read()
+                mime, _ = mimetypes.guess_type(path)
+                if not mime:
+                    mime = "application/octet-stream"
+                b64 = base64.b64encode(data).decode("utf-8")
+                return f"data:{mime};base64,{b64}"
+            except Exception:
+                return None
+
+        if uuid_val:
+            try:
+                for fname in os.listdir(qr_dir):
+                    if fname.startswith(str(uuid_val)):
+                        full = os.path.join(qr_dir, fname)
+                        if os.path.isfile(full):
+                            return _encode_file(full)
+            except FileNotFoundError:
+                pass  # qrcodesall folder not present
+
+        # fallback: use image_qrkod ImageField on the model if set
+        image_field = getattr(obj, "image_qrkod", None)
+        if image_field:
+            try:
+                path = image_field.path
+                if os.path.isfile(path):
+                    return _encode_file(path)
+            except Exception:
+                # image_field may be a URL-only field or missing file
+                try:
+                    # try to resolve by MEDIA_ROOT + name
+                    name = getattr(image_field, "name", None)
+                    if name:
+                        path = os.path.join(settings.MEDIA_ROOT, name)
+                        if os.path.isfile(path):
+                            return _encode_file(path)
+                except Exception:
+                    pass
+
+        return None
 
 
 # ============================

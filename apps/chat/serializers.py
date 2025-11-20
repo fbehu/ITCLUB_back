@@ -186,7 +186,7 @@ class ConversationUserSerializer(serializers.Serializer):
     first_name = serializers.CharField(required=False, allow_blank=True)
     last_name = serializers.CharField(required=False, allow_blank=True)
     email = serializers.EmailField(required=False, allow_blank=True)
-    image_qrkod = serializers.CharField()
+    image_qrkod = serializers.SerializerMethodField()
     tg_username = serializers.CharField(required=False, allow_blank=True)
     level = serializers.CharField(required=False, allow_blank=True)
     course = serializers.CharField(required=False, allow_blank=True)

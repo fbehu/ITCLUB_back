@@ -10,7 +10,7 @@ class UserAdmin(BaseUserAdmin):
     add_form = CustomUserCreationForm
 
     list_display = ('uuid', 'username', 'phone_number', 'email', 'is_active', 'is_staff')
-    list_filter = ('is_staff', 'is_superuser', 'is_active', 'role')
+    list_filter = ('is_staff', 'is_superuser', 'is_active', 'role', 'uuid')
 
     fieldsets = (
         (None, {'fields': ('username', 'phone_number', 'password')}),
@@ -29,7 +29,7 @@ class UserAdmin(BaseUserAdmin):
 
     readonly_fields = ('last_login', 'created_at', 'updated_at')
 
-    search_fields = ('phone_number', 'username', 'email')
+    search_fields = ('phone_number', 'username', 'email', 'uuid')
     ordering = ('phone_number',)
     filter_horizontal = ('groups', 'user_permissions')
 

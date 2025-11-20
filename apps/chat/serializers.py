@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Message
 from apps.users.models import User
+from django.db.models import Q, Count
 
 
 class MessageSerializer(serializers.ModelSerializer):
@@ -159,3 +160,104 @@ class MessageCreateSerializer(serializers.ModelSerializer):
         )
         
         return message
+
+
+class UnreadCountSerializer(serializers.Serializer):
+    """
+    O'qilmagan xabarlar sonini qaytarish uchun serializer
+    """
+    unread_count = serializers.IntegerField()
+
+
+class ConversationUserSerializer(serializers.Serializer):
+    """
+    Conversation users serializer o'qilmagan xabar soni bilan
+    """
+    id = serializers.UUIDField()
+    uuid = serializers.CharField()
+    username = serializers.CharField()
+    phone_number = serializers.CharField()
+    role = serializers.CharField()
+    first_name = serializers.CharField(required=False, allow_blank=True)
+    last_name = serializers.CharField(required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True)
+    image_qrkod = serializers.SerializerMethodField()
+    tg_username = serializers.CharField(required=False, allow_blank=True)
+    level = serializers.CharField(required=False, allow_blank=True)
+    course = serializers.CharField(required=False, allow_blank=True)
+    direction = serializers.CharField(required=False, allow_blank=True)
+    coins = serializers.IntegerField(required=False)
+    photo = serializers.SerializerMethodField()
+    is_active = serializers.BooleanField()
+    created_at = serializers.DateTimeField()
+    updated_at = serializers.DateTimeField()
+    unread_message_count = serializers.SerializerMethodField()
+    
+    def get_image_qrkod(self, obj):
+        if obj.image_qrkod:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image_qrkod.url)
+            return obj.image_qrkod.url
+        return None
+    
+    def get_photo(self, obj):
+        if obj.photo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.photo.url)
+            return obj.photo.url
+        return None
+    
+    def get_unread_message_count(self, obj):
+        """
+        User uchun o'qilmagan xabarlar sonini hisoblash
+        """
+        current_user = self.context.get('request').user
+        if not current_user or not current_user.is_authenticated:
+            return 0
+        
+        unread_count = Message.objects.filter(
+            Q(admin=current_user, student=obj, is_read=False) |
+            Q(student=current_user, admin=obj, is_read=False) |
+            Q(admin=current_user, sender=obj, is_read=False) |
+            Q(student=current_user, sender=obj, is_read=False)
+        ).exclude(sender=current_user).count()
+        return unread_count
+
+
+class UnreadNotificationSerializer(serializers.ModelSerializer):
+    """
+    O'qilmagan xabarlar notification uchun serializer
+    """
+    sender_id = serializers.IntegerField(source='sender.id')
+    sender_name = serializers.SerializerMethodField()
+    sender_photo = serializers.SerializerMethodField()
+    sender_role = serializers.CharField(source='sender.role')
+    message = serializers.CharField(source='text')
+    
+    class Meta:
+        model = Message
+        fields = [
+            'id',
+            'sender_id',
+            'sender_name',
+            'sender_photo',
+            'sender_role',
+            'message',
+            'created_at',
+            'is_read',
+        ]
+    
+    def get_sender_name(self, obj):
+        """Yuboruvchi to'liq ismini qaytaradi"""
+        return f"{obj.sender.first_name} {obj.sender.last_name}".strip()
+    
+    def get_sender_photo(self, obj):
+        """Yuboruvchi fotosuratini qaytaradi"""
+        if obj.sender.photo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.sender.photo.url)
+            return obj.sender.photo.url
+        return None

@@ -53,6 +53,9 @@ class Message(models.Model):
         verbose_name="Fayl"
     )
     
+    # O'qilganlik holati
+    is_read = models.BooleanField(default=False, verbose_name="O'qilganmi?")
+    
     # Vaqtlar
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan vaqti")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="O'zgartirilgan vaqti")

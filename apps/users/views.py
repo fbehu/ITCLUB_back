@@ -14,6 +14,7 @@ from .filters import UserFilter
 from .models import User
 from .serializers import UserSerializer, RegisterSerializer, LoginSerializer
 from django.db.models.query import QuerySet
+from apps.chat.serializers import ConversationUserSerializer
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -104,7 +105,7 @@ class ChangePasswordView(APIView):
 
 
 class TeacherOnlyUserListView(generics.ListAPIView):
-    serializer_class = UserSerializer
+    serializer_class = ConversationUserSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
     pagination_class = StandardResultsSetPagination
 
@@ -239,5 +240,4 @@ class AdminsListView(generics.ListAPIView):
     serializer_class = AdminListSerializer
 
     def get_queryset(self):
-        return User.objects.filter(role='admin').order_by('-created_at')        
-    
+        return User.objects.filter(role='admin').order_by('-created_at')

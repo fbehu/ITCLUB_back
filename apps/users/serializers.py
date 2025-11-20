@@ -135,6 +135,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             "uuid",
             "level",
             "course",
+            "tg_username",
             "direction",
             "phone_number",
             "password",

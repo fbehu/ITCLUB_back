@@ -154,19 +154,33 @@ class AdminUserUpdateView(generics.RetrieveUpdateDestroyAPIView):
 class AdminChangeUserPasswordAPIView(APIView):
 	"""
 	Admin-only endpoint to change another user's password without old password.
+	Student-only endpoint to change own password with old password.
+	
+	Admin case:
 	POST /users/{user_id}/change-password/
 	Body:
 	{
 	  "new_password": "newpass",
 	  "confirm_password": "newpass"
 	}
+	
+	Student case:
+	POST /users/{user_id}/change-password/
+	Body:
+	{
+	  "old_password": "oldpass",
+	  "new_password": "newpass",
+	  "confirm_password": "newpass"
+	}
 	"""
-	permission_classes = [IsAuthenticated, IsAdmin]
+	permission_classes = [IsAuthenticated]
 
 	def post(self, request, user_id, *args, **kwargs):
+		current_user = request.user
 		data = request.data or {}
 		new_password = data.get("new_password")
 		confirm_password = data.get("confirm_password")
+		old_password = data.get("old_password")
 
 		# normalize possible list inputs (e.g. ["pass"]) -> "pass"
 		def _to_str(val):
@@ -183,22 +197,64 @@ class AdminChangeUserPasswordAPIView(APIView):
 
 		new_password = _to_str(new_password)
 		confirm_password = _to_str(confirm_password)
-
-		# Build DRF-style validation error dict
-		errors = {}
-		if not new_password:
-			errors["new_password"] = ["buni jo'nating."]
-		if not confirm_password:
-			errors["confirm_password"] = ["buni jo'nating."]
-		if errors:
-			return Response(errors, status=status.HTTP_400_BAD_REQUEST)
-
-		if new_password != confirm_password:
-			return Response({"confirm_password": ["Passwords do not match."]}, status=status.HTTP_400_BAD_REQUEST)
+		old_password = _to_str(old_password)
 
 		# Get target user
 		target_user = get_object_or_404(User, id=user_id)
-		# Set new password (ensure string passed)
+
+		# Build DRF-style validation error dict
+		errors = {}
+		
+		# Agar student bo'lsa - faqat o'zining parolini o'zgartira oladi
+		if current_user.role == 'student':
+			if str(current_user.id) != str(user_id):
+				return Response(
+					{"detail": "Siz faqat o'zingizning parolingizni o'zgartira olasiz."},
+					status=status.HTTP_403_FORBIDDEN
+				)
+			
+			# Student - old password kerak
+			if not old_password:
+				errors["old_password"] = ["Eski parolni jo'nating."]
+			if not new_password:
+				errors["new_password"] = ["Yangi parolni jo'nating."]
+			if not confirm_password:
+				errors["confirm_password"] = ["Parolni tasdiqlang."]
+			
+			if errors:
+				return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+			
+			# Eski parolni tekshirish
+			if not current_user.check_password(old_password):
+				return Response(
+					{"old_password": ["Eski parol noto'g'ri."]},
+					status=status.HTTP_400_BAD_REQUEST
+				)
+		
+		# Agar admin bo'lsa - old password kerak emas
+		elif current_user.role == 'admin':
+			if not new_password:
+				errors["new_password"] = ["buni jo'nating."]
+			if not confirm_password:
+				errors["confirm_password"] = ["buni jo'nating."]
+			
+			if errors:
+				return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+		
+		else:
+			return Response(
+				{"detail": "Sizda bu amalni bajarish huquqi yo'q."},
+				status=status.HTTP_403_FORBIDDEN
+			)
+
+		# Parollar mos kelishini tekshirish
+		if new_password != confirm_password:
+			return Response(
+				{"confirm_password": ["Parollar mos kelmadi."]},
+				status=status.HTTP_400_BAD_REQUEST
+			)
+
+		# Parolni o'zgartirish
 		target_user.set_password(new_password)
 		target_user.save(update_fields=["password", "updated_at"])
 		return Response({"detail": "Parol muvaffaqiyatli o'zgartirildi."}, status=status.HTTP_200_OK)

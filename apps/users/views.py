@@ -71,14 +71,14 @@ class ProfileView(generics.RetrieveAPIView):
         user = self.get_object()
         serializer = self.get_serializer(user, data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        serializer.save(is_active=True)
         return Response(serializer.data)
 
     def patch(self, request, *args, **kwargs):
         user = self.get_object()
         serializer = self.get_serializer(user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        serializer.save(is_active=True)
         return Response(serializer.data)
 
 

@@ -77,8 +77,8 @@ CORS_ALLOWED_ORIGINS = [
     "https://api.ubsitclub.uz",
     "http://91.210.106.114",
     "https://itclub.cyberrs.uz",
-    # "http://127.0.0.1:8080",
-    # "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://localhost:8080",
 ]
 
 CORS_ALLOW_HEADERS = [

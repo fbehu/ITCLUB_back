@@ -19,7 +19,7 @@ class Group(Basemodel):
     ]
     name = models.CharField(max_length=255, verbose_name="Guruh nomi")
     smena = models.CharField(max_length=500, verbose_name="Guruh Smenasi", blank=True)
-    start_time = models.DateTimeField(verbose_name="Boshlanish vaqti")
+    start_time = models.TimeField(verbose_name="Boshlanish vaqti")
     
     # Add students relation (many-to-many to User, limited to students)
     students = models.ManyToManyField(

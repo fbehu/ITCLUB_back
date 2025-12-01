@@ -7,4 +7,6 @@ router.register(r'', GroupsViewSet, basename='groups')
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('<int:pk>/students/', GroupsViewSet.as_view({'get': 'students', 'post': 'students'}), name='group-students'),
 ]
+# students endpoint GET va POST uchun maxsus URL router orqali yo'naltiriladi

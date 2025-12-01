@@ -30,11 +30,18 @@ class GroupsViewSet(viewsets.ModelViewSet):
         """
         Allow authenticated read access, require IsAdmin for unsafe methods.
         """
+        # Students action uchun alohida permission tekshiruvi
+        if self.action == 'students':
+            if self.request.method in ('GET', 'HEAD', 'OPTIONS'):
+                return [IsAuthenticated()]
+            return [IsAuthenticated(), IsAdmin()]
+        
+        # Boshqa action-lar uchun
         if self.request.method in ('GET', 'HEAD', 'OPTIONS'):
             return [IsAuthenticated()]
         return [IsAuthenticated(), IsAdmin()]
 
-    @action(detail=True, methods=['get', 'post'], url_path='students', permission_classes=[IsAuthenticated, IsAdmin])
+    @action(detail=True, methods=['get', 'post'], url_path='students')
     def students(self, request, pk=None):
         """
         GET: Guruhga tgishli o'quvchilarning ma'lumotlarini ko'rsatadi

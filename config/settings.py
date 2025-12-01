@@ -124,25 +124,25 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # PostgreSQL uchun sozlama
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'itclubbase',
-#         'USER': 'root',
-#         'PASSWORD': 'Cyber_992398981itclub',
-#         'HOST': '127.0.0.1',  # ENG MUHIM! localhost emas
-#         'PORT': '5432',
-#     }
-# }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'itclubbase',
+        'USER': 'root',
+        'PASSWORD': 'Cyber_992398981itclub',
+        'HOST': '127.0.0.1',  # ENG MUHIM! localhost emas
+        'PORT': '5432',
+    }
+}
 
 
 # Sqlite uchun sozlama
-DATABASES = {   
-   'default': {
-       'ENGINE': 'django.db.backends.sqlite3',
-       'NAME': BASE_DIR / 'db.sqlite3',
-   }
-}
+# DATABASES = {   
+#    'default': {
+#        'ENGINE': 'django.db.backends.sqlite3',
+#        'NAME': BASE_DIR / 'db.sqlite3',
+#    }
+# }
 
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",

@@ -17,7 +17,7 @@ class Group(Basemodel):
         ('saturday', 'Shanba'),
         ('sunday', 'Yakshanba'),
     ]
-    class_days = models.CharField(CLASSDAYS, max_length=50, verbose_name="")
+    class_days = models.CharField(choices=CLASSDAYS, max_length=50, verbose_name="Dars kunlari")
     name = models.CharField(max_length=255, verbose_name="Guruh nomi")
     smena = models.CharField(max_length=500, verbose_name="Guruh Smenasi", blank=True)
     start_time = models.DateTimeField(verbose_name="Boshlanish vaqti")

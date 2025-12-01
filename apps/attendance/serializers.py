@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Attendance, Group
-
+from django.utils import timezone
 class GroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = Group

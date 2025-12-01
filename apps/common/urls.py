@@ -5,4 +5,5 @@ urlpatterns = [
     path("message/", include("apps.chat.urls")),
     path("messages/", include("apps.message.urls")),
     path("groups/", include("apps.groups.urls")),
+    path("attendance/", include("apps.attendance.urls"))
 ]

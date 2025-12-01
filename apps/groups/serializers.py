@@ -3,6 +3,9 @@ from .models import Group
 
 
 class GroupSerializer(serializers.ModelSerializer):
+    # return list of student UUIDs
+    students = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+
     class Meta:
         model = Group
         fields = [
@@ -10,6 +13,7 @@ class GroupSerializer(serializers.ModelSerializer):
             "name",
             "smena",
             "start_time",
+            "students",
             "created_at",
             "updated_at",
         ]

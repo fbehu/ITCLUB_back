@@ -18,8 +18,17 @@ class Group(Basemodel):
         ('sunday', 'Yakshanba'),
     ]
     name = models.CharField(max_length=255, verbose_name="Guruh nomi")
-    smena = models.CharField(max_length=500, verbose_name="Guruh Smenasi")
-    start_time = models.CharField(max_length=500, verbose_name="Guruh Smenasi")
+    smena = models.CharField(max_length=500, verbose_name="Guruh Smenasi", blank=True)
+    start_time = models.DateTimeField(verbose_name="Boshlanish vaqti")
+    
+    # Add students relation (many-to-many to User, limited to students)
+    students = models.ManyToManyField(
+        User,
+        blank=True,
+        related_name='student_groups',
+        limit_choices_to={'role': 'student'},
+        verbose_name="Students"
+    )
     
     class Meta:
         verbose_name = "Guruh"

@@ -19,7 +19,7 @@ class Group(Basemodel):
     ]
     name = models.CharField(max_length=255, verbose_name="Guruh nomi")
     smena = models.CharField(max_length=500, verbose_name="Guruh Smenasi")
-    start_time = models.DateTimeField(verbose_name="Boshlanish vaqti")
+    start_time = models.CharField(max_length=500, verbose_name="Guruh Smenasi")
     
     class Meta:
         verbose_name = "Guruh"

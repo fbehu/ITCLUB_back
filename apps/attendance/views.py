@@ -49,22 +49,44 @@ class AttendanceViewSet(viewsets.ViewSet):
             # client can still attempt to create and server-side validation should enforce.
             return False
 
+    def _resolve_group(self, group_param):
+        """
+        Accept a Group instance, an integer id (or numeric string), or a name/title/slug string.
+        Return a Group instance or None if not found/invalid.
+        """
+        if not group_param:
+            return None
+        if isinstance(group_param, Group):
+            return group_param
+        # try by id
+        try:
+            return Group.objects.get(id=int(group_param))
+        except (ValueError, TypeError, Group.DoesNotExist):
+            pass
+        # try common name fields
+        for field in ("name", "title", "slug"):
+            try:
+                kwargs = {field: group_param}
+                return Group.objects.get(**kwargs)
+            except Group.DoesNotExist:
+                continue
+        return None
+
     def list(self, request):
         """
         GET /api/attendance/?group_id=1&date=2025-12-01
         Returns {"can_attend": True} if the requesting user has not yet attended for that group/date,
         otherwise {"can_attend": False, "detail": "..."}.
         """
-        group_id = request.query_params.get("group_id")
+        group_param = request.query_params.get("group_id")
         date_str = request.query_params.get("date")
 
-        if not group_id or not date_str:
+        if not group_param or not date_str:
             return Response({"detail": "group_id and date query params are required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            group = get_object_or_404(Group, id=group_id)
-        except (ValueError, TypeError):
-            return Response({"detail": "Invalid group_id."}, status=status.HTTP_400_BAD_REQUEST)
+        group = self._resolve_group(group_param)
+        if group is None:
+            return Response({"detail": "Invalid group identifier."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             attendance_date = timezone.datetime.strptime(date_str, "%Y-%m-%d").date()
@@ -96,18 +118,25 @@ class AttendanceViewSet(viewsets.ViewSet):
         group_val = request.data.get("group") or request.data.get("group_id")
         date_val = request.data.get("date")
 
-        if group_val and date_val:
+        # Try to resolve group; if resolved, use it for pre-check and normalize payload for serializer
+        resolved_group = self._resolve_group(group_val) if group_val else None
+
+        if resolved_group and date_val:
             try:
-                group = Group.objects.get(id=group_val)
                 attendance_date = timezone.datetime.strptime(date_val, "%Y-%m-%d").date()
-                attendance_record = Attendance.objects.filter(group=group, date=attendance_date).first()
-                if self._user_already_attended(attendance_record, group, attendance_date, request.user):
+                attendance_record = Attendance.objects.filter(group=resolved_group, date=attendance_date).first()
+                if self._user_already_attended(attendance_record, resolved_group, attendance_date, request.user):
                     return Response({"detail": "You have already attended on this date."}, status=status.HTTP_400_BAD_REQUEST)
-            except (Group.DoesNotExist, ValueError, TypeError):
-                # let serializer handle invalid group/date if present
+            except (ValueError, TypeError):
+                # let serializer handle invalid date if present
                 pass
 
-        serializer = AttendanceSerializer(data=request.data, context={"request": request})
+        # normalize data so serializer receives group as an id if we resolved it
+        data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        if resolved_group:
+            data['group'] = resolved_group.id
+
+        serializer = AttendanceSerializer(data=data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)

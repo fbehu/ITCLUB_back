@@ -7,5 +7,5 @@ router.register(r'', AttendanceViewSet, basename='attendance')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('group/<int:group_id>/<str:date>/', AttendanceViewSet.as_view({'get': 'retrieve'}), name='attendance-by-group-date'),
+    path('<int:group_id>&<str:date>/', AttendanceViewSet.as_view({'get': 'retrieve'}), name='attendance-by-group-date'),
 ]

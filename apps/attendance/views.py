@@ -43,7 +43,7 @@ class AttendanceViewSet(viewsets.ViewSet):
 
         # Last resort: check for a per-user Attendance row
         try:
-            return Attendance.objects.filter(group=group, date=attendance_date, user=user).exists()
+            return Attendance.objects.filter(group_id=group.id if isinstance(group, Group) else group, date=attendance_date, user=user).exists()
         except Exception:
             # Can't determine; assume not attended so the API remains permissive,
             # client can still attempt to create and server-side validation should enforce.
@@ -84,6 +84,7 @@ class AttendanceViewSet(viewsets.ViewSet):
         if not group_param or not date_str:
             return Response({"detail": "group_id and date query params are required."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # resolve group_param into a Group instance (defensive against raw strings)
         group = self._resolve_group(group_param)
         if group is None:
             return Response({"detail": "Invalid group identifier."}, status=status.HTTP_400_BAD_REQUEST)
@@ -93,7 +94,8 @@ class AttendanceViewSet(viewsets.ViewSet):
         except (ValueError, TypeError):
             return Response({"detail": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
 
-        attendance_record = Attendance.objects.filter(group=group, date=attendance_date).first()
+        # use group_id to avoid passing non-Group values into FK lookups
+        attendance_record = Attendance.objects.filter(group_id=group.id if isinstance(group, Group) else group, date=attendance_date).first()
         already = self._user_already_attended(attendance_record, group, attendance_date, request.user)
 
         if already:
@@ -104,7 +106,7 @@ class AttendanceViewSet(viewsets.ViewSet):
     def retrieve(self, request, group_id, date):
         group = get_object_or_404(Group, id=group_id)
         attendance_date = timezone.datetime.strptime(date, '%Y-%m-%d').date()
-        attendance_record = Attendance.objects.filter(group=group, date=attendance_date).first()
+        attendance_record = Attendance.objects.filter(group_id=group.id if isinstance(group, Group) else group, date=attendance_date).first()
 
         if attendance_record:
             serializer = AttendanceSerializer(attendance_record)
@@ -124,7 +126,7 @@ class AttendanceViewSet(viewsets.ViewSet):
         if resolved_group and date_val:
             try:
                 attendance_date = timezone.datetime.strptime(date_val, "%Y-%m-%d").date()
-                attendance_record = Attendance.objects.filter(group=resolved_group, date=attendance_date).first()
+                attendance_record = Attendance.objects.filter(group_id=resolved_group.id if isinstance(resolved_group, Group) else resolved_group, date=attendance_date).first()
                 if self._user_already_attended(attendance_record, resolved_group, attendance_date, request.user):
                     return Response({"detail": "You have already attended on this date."}, status=status.HTTP_400_BAD_REQUEST)
             except (ValueError, TypeError):

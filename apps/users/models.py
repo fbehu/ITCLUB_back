@@ -6,6 +6,7 @@ import uuid
 class User(AbstractUser):
     ROLES = (
         ('student', 'Student'),
+        ('teacher', 'O\'qituvchi'),
         ('admin', 'Admin'),
     )
 

@@ -14,7 +14,7 @@ class Message(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
     # Xabar matni
-    text = models.TextField(verbose_name="Xabar matni")
+    text = models.CharField(max_length=300, verbose_name="Xabar matni")
     
     # Admin va student - faqat bittasi null bo'lishi kerak
     admin = models.ForeignKey(

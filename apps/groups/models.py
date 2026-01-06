@@ -17,10 +17,20 @@ class Group(Basemodel):
         ('saturday', 'Shanba'),
         ('sunday', 'Yakshanba'),
     ]
-    # class_days = models.CharField(choices=CLASSDAYS, max_length=50, verbose_name="Dars kunlari")
     name = models.CharField(max_length=255, verbose_name="Guruh nomi")
     smena = models.CharField(max_length=500, verbose_name="Guruh Smenasi", blank=True)
     start_time = models.CharField(max_length=20, blank=True, null=True)
+    
+    # Teacher (o'qituvchi) - Foreign Key
+    teacher = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='teaching_groups',
+        limit_choices_to={'role': 'teacher'},
+        verbose_name="O'qituvchi",
+        null=True,
+        blank=True
+    )
     
     # Add students relation (many-to-many to User, limited to students)
     students = models.ManyToManyField(

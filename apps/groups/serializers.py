@@ -6,6 +6,7 @@ from apps.users.serializers import UserSerializer
 class GroupSerializer(serializers.ModelSerializer):
     # GET uchun o'quvchilarning to'liq ma'lumotlarini qaytaradi
     students = serializers.SerializerMethodField()
+    teacher = serializers.SerializerMethodField()
 
     class Meta:
         model = Group
@@ -14,6 +15,7 @@ class GroupSerializer(serializers.ModelSerializer):
             "name",
             "smena",
             "start_time",
+            "teacher",
             "students",
             "created_at",
             "updated_at",
@@ -24,4 +26,10 @@ class GroupSerializer(serializers.ModelSerializer):
         """O'quvchilarning to'liq ma'lumotlarini qaytaradi"""
         students = obj.students.all()
         return UserSerializer(students, many=True, context=self.context).data
+    
+    def get_teacher(self, obj):
+        """O'qituvchining ma'lumotlarini qaytaradi"""
+        if obj.teacher:
+            return UserSerializer(obj.teacher, context=self.context).data
+        return None
 

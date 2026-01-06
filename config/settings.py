@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "apps.message",
     "apps.groups",
     "apps.attendance",
+    "apps.news",
 
     # Swagger
     "drf_yasg",

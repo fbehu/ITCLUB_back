@@ -15,7 +15,9 @@ class News(Basemodel):
     title = models.CharField(max_length=150)
     description = models.TextField()
     type = models.CharField(max_length=30, choices=TYPE_CHOICES, default='announcement', verbose_name='Yangilik turi')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new', verbose_name='Holati', blank=True, null=True)
+    photo = models.ImageField(upload_to='news/', blank=True, null=True, verbose_name='Rasm')
+    video = models.FileField(upload_to='news/', blank=True, null=True, verbose_name='Video')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new', verbose_name='Holati')
 
     def __str__(self):
         return self.title

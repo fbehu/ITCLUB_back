@@ -10,6 +10,8 @@ class NewsSerializer(serializers.ModelSerializer):
             "title",
             "description",
             "type",
+            "photo",
+            "video",
             "status",
             "created_at",
             "updated_at",

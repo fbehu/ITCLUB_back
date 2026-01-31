@@ -1,108 +1,18 @@
 from django.shortcuts import get_object_or_404
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.parsers import MultiPartParser, FormParser
 from apps.common.pagination import StandardResultsSetPagination
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import ChangePasswordSerializer, AdminListSerializer
+from rest_framework.permissions import IsAuthenticated
+from .serializers import AdminListSerializer
 from .permissions import IsAdmin
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter
 from .filters import UserFilter
 from .models import User
-from .serializers import UserSerializer, RegisterSerializer, LoginSerializer
-from django.db.models.query import QuerySet
+from .serializers import UserSerializer, RegisterSerializer
 from apps.chat.serializers import ConversationUserSerializer
-
-class RegisterView(generics.CreateAPIView):
-    queryset = User.objects.all()
-    serializer_class = RegisterSerializer
-    permission_classes = [AllowAny]
-
-
-class LoginView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request, *args, **kwargs):
-        serializer = LoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data["user"]
-
-        if not user.is_active:
-            return Response(
-                {"detail": "Sizning profilingiz aktiv emas. Admin tomonidan bloklangansiz."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        refresh = RefreshToken.for_user(user)
-        return Response(
-            {
-                "refresh": str(refresh),
-                "access": str(refresh.access_token),
-                "user": UserSerializer(user).data,
-            },
-            status=status.HTTP_200_OK,
-        )
-
-    
-class LogoutView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        try:
-            refresh_token = request.data["refresh"]
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            return Response({"detail": "Tizimdan muvaffaqiyatli chiqdingiz."}, status=status.HTTP_205_RESET_CONTENT)
-        except Exception as e:
-            return Response({"error": "Noto'g'ri token yoki Qora ro'yxatga kiritilgan."}, status=status.HTTP_400_BAD_REQUEST)
-
-
-class ProfileView(generics.RetrieveAPIView):
-    serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_object(self):
-        return self.request.user
-
-    def put(self, request, *args, **kwargs):
-        user = self.get_object()
-        serializer = self.get_serializer(user, data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(is_active=True)
-        return Response(serializer.data)
-
-    def patch(self, request, *args, **kwargs):
-        user = self.get_object()
-        serializer = self.get_serializer(user, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(is_active=True)
-        return Response(serializer.data)
-
-
-class ChangePasswordView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def put(self, request, *args, **kwargs):
-        serializer = ChangePasswordSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        user = request.user
-        old_password = serializer.validated_data["old_password"]
-        new_password = serializer.validated_data["new_password"]
-
-        if not user.check_password(old_password):
-            return Response({"old_password": ["Eski parol noto'g'ri."]}, status=status.HTTP_400_BAD_REQUEST)
-
-        # parolni o'zgartirish
-        user.set_password(new_password)
-        user.save()
-
-        return Response({"detail": "Parol muvaffaqiyatli o'zgartirildi."}, status=status.HTTP_200_OK)
-
-
 
 class TeacherOnlyUserListView(generics.ListAPIView):
     serializer_class = ConversationUserSerializer
@@ -120,19 +30,36 @@ class TeacherOnlyUserListView(generics.ListAPIView):
 class AdminCreateUserAPIView(generics.CreateAPIView):
     """
     Admin foydalanuvchi qo'shish endpointi
-    POST /users/users/
+    POST /users/add/
     """
     permission_classes = [IsAuthenticated, IsAdmin]
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
-    parser_classes = [MultiPartParser, FormParser]  # Rasm fayllarini qabul qilish uchun
+    parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        # Form data'dagi barcha qiymatlarni to'g'ri qayta ishlash
+        data = {}
+        
+        for key, value in request.data.items():
+            if key == 'group':
+                # group fieldini groups array'ga o'zgartirish
+                if value:
+                    if isinstance(value, list):
+                        value = value[0] if value else None
+                    if value:
+                        data['groups'] = [int(value)]
+            else:
+                # Boshqa fieldlar uchun - agar list bo'lsa, birinchi elementni olish
+                if isinstance(value, list):
+                    data[key] = value[0] if value else None
+                else:
+                    data[key] = value
+        
+        serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()  # create() metodi RegisterSerializer da ishlaydi
+        user = serializer.save()
 
-        # Agar rasm fayli kelsa, saqlash
         photo = request.FILES.get('photo')
         if photo:
             user.photo = photo
@@ -141,14 +68,12 @@ class AdminCreateUserAPIView(generics.CreateAPIView):
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
-
 class AdminUserUpdateView(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
     lookup_field = "pk"
-
-    parser_classes = [MultiPartParser, FormParser] 
+    parser_classes = [MultiPartParser, FormParser]
 
 
 class AdminChangeUserPasswordAPIView(APIView):
@@ -182,7 +107,6 @@ class AdminChangeUserPasswordAPIView(APIView):
 		confirm_password = data.get("confirm_password")
 		old_password = data.get("old_password")
 
-		# normalize possible list inputs (e.g. ["pass"]) -> "pass"
 		def _to_str(val):
 			if isinstance(val, list):
 				return val[0] if val else None
@@ -199,13 +123,9 @@ class AdminChangeUserPasswordAPIView(APIView):
 		confirm_password = _to_str(confirm_password)
 		old_password = _to_str(old_password)
 
-		# Get target user
 		target_user = get_object_or_404(User, id=user_id)
-
-		# Build DRF-style validation error dict
 		errors = {}
 		
-		# Agar student bo'lsa - faqat o'zining parolini o'zgartira oladi
 		if current_user.role == 'student':
 			if str(current_user.id) != str(user_id):
 				return Response(
@@ -213,7 +133,6 @@ class AdminChangeUserPasswordAPIView(APIView):
 					status=status.HTTP_403_FORBIDDEN
 				)
 			
-			# Student - old password kerak
 			if not old_password:
 				errors["old_password"] = ["Eski parolni jo'nating."]
 			if not new_password:
@@ -224,14 +143,12 @@ class AdminChangeUserPasswordAPIView(APIView):
 			if errors:
 				return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 			
-			# Eski parolni tekshirish
 			if not current_user.check_password(old_password):
 				return Response(
 					{"old_password": ["Eski parol noto'g'ri."]},
 					status=status.HTTP_400_BAD_REQUEST
 				)
 		
-		# Agar admin bo'lsa - old password kerak emas
 		elif current_user.role == 'admin':
 			if not new_password:
 				errors["new_password"] = ["buni jo'nating."]
@@ -247,35 +164,21 @@ class AdminChangeUserPasswordAPIView(APIView):
 				status=status.HTTP_403_FORBIDDEN
 			)
 
-		# Parollar mos kelishini tekshirish
 		if new_password != confirm_password:
 			return Response(
 				{"confirm_password": ["Parollar mos kelmadi."]},
 				status=status.HTTP_400_BAD_REQUEST
 			)
 
-		# Parolni o'zgartirish
 		target_user.set_password(new_password)
 		target_user.save(update_fields=["password", "updated_at"])
 		return Response({"detail": "Parol muvaffaqiyatli o'zgartirildi."}, status=status.HTTP_200_OK)
 
-class UserStatisticsAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-    def get(self, request, *args, **kwargs):
-        user = request.user
-        data = {
-            "total_users": User.objects.count(),
-            "active_users": User.objects.filter(is_active=True).count(),
-            "user_level": user.level,
-            "user_course": user.course,
-            "user_coins": user.coins,
-        }
-        return Response(data, status=status.HTTP_200_OK)
 
 class AdminCheckUserAPIView(generics.ListAPIView):
     """
     Admin foydalanuvchi tekshirish endpointi
-    GET /users/check-users/?uuid=...
+    GET /users/check/?uuid=...
     """
     permission_classes = [IsAuthenticated, IsAdmin]
     serializer_class = UserSerializer

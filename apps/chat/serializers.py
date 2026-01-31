@@ -173,87 +173,30 @@ class UnreadCountSerializer(serializers.Serializer):
 
 
 class ConversationUserSerializer(serializers.Serializer):
-    image_qrkod = serializers.SerializerMethodField()
-
     """
     Conversation users serializer o'qilmagan xabar soni bilan
     """
     id = serializers.UUIDField()
-    uuid = serializers.CharField()
     username = serializers.CharField()
     phone_number = serializers.CharField()
+    parent_phone_number = serializers.JSONField()
     role = serializers.CharField()
     first_name = serializers.CharField(required=False, allow_blank=True)
     last_name = serializers.CharField(required=False, allow_blank=True)
     email = serializers.EmailField(required=False, allow_blank=True)
-    image_qrkod = serializers.SerializerMethodField()
     tg_username = serializers.CharField(required=False, allow_blank=True)
     level = serializers.CharField(required=False, allow_blank=True)
-    course = serializers.CharField(required=False, allow_blank=True)
-    direction = serializers.CharField(required=False, allow_blank=True)
+    student_groups = serializers.SerializerMethodField()
+    teaching_groups = serializers.SerializerMethodField()
+    social = serializers.CharField(required=False, allow_blank=True)
+    invite_code = serializers.CharField(required=False, allow_blank=True)
     coins = serializers.IntegerField(required=False)
     photo = serializers.SerializerMethodField()
     is_active = serializers.BooleanField()
     created_at = serializers.DateTimeField()
     updated_at = serializers.DateTimeField()
     unread_message_count = serializers.SerializerMethodField()
-    
-    def get_image_qrkod(self, obj):
-        """
-        Return base64 data URI for QR image:
-        - Prefer file in MEDIA_ROOT/qrcodesall whose filename starts with obj.uuid (e.g. ITC100.png)
-        - Fallback to obj.image_qrkod (ImageField) if present
-        - Return None if no image available
-        """
-        # prefer uuid-based file lookup
-        uuid_val = getattr(obj, "uuid", None)
-        qr_dir = os.path.join(settings.MEDIA_ROOT, "qrcodesall")
 
-        def _encode_file(path):
-            try:
-                with open(path, "rb") as f:
-                    data = f.read()
-                mime, _ = mimetypes.guess_type(path)
-                if not mime:
-                    mime = "application/octet-stream"
-                b64 = base64.b64encode(data).decode("utf-8")
-                return f"data:{mime};base64,{b64}"
-            except Exception:
-                return None
-
-        if uuid_val:
-            try:
-                for fname in os.listdir(qr_dir):
-                    if fname.startswith(str(uuid_val)):
-                        full = os.path.join(qr_dir, fname)
-                        if os.path.isfile(full):
-                            return _encode_file(full)
-            except FileNotFoundError:
-                pass  # qrcodesall folder not present
-
-        # fallback: use image_qrkod ImageField on the model if set
-        image_field = getattr(obj, "image_qrkod", None)
-        if image_field:
-            try:
-                path = image_field.path
-                if os.path.isfile(path):
-                    return _encode_file(path)
-            except Exception:
-                # image_field may be a URL-only field or missing file
-                try:
-                    # try to resolve by MEDIA_ROOT + name
-                    name = getattr(image_field, "name", None)
-                    if name:
-                        path = os.path.join(settings.MEDIA_ROOT, name)
-                        if os.path.isfile(path):
-                            return _encode_file(path)
-                except Exception:
-                    pass
-
-        return None
-
-
-    
     def get_photo(self, obj):
         if obj.photo:
             request = self.context.get('request')
@@ -262,10 +205,25 @@ class ConversationUserSerializer(serializers.Serializer):
             return obj.photo.url
         return None
     
+    def get_student_groups(self, obj):
+        """Student bo'lsa, qaysi guruhlarda o'qiyotganini qaytaradi"""
+        if obj.role == 'student':
+            groups = obj.student_groups.all()
+            return [{"id": g.id, "name": g.name} for g in groups]
+        return []
+    
+    def get_teaching_groups(self, obj):
+        """Teacher bo'lsa, qaysi guruhlarda o'qitayotganini qaytaradi"""
+        if obj.role == 'teacher':
+            groups = obj.teaching_groups.all()
+            return [{"id": g.id, "name": g.name} for g in groups]
+        return []
+    
     def get_unread_message_count(self, obj):
         """
         User uchun o'qilmagan xabarlar sonini hisoblash
         """
+        from django.db.models import Q
         current_user = self.context.get('request').user
         if not current_user or not current_user.is_authenticated:
             return 0

@@ -8,9 +8,9 @@ from django.conf.urls.static import static
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="UBS IT Club API",
+        title="Universe School API",
         default_version="v1",
-        description="UBS IT Club backendi uchun API hujjatlar",
+        description="Universe School backendi uchun API hujjatlar",
     ),
     public=True,
     permission_classes=(permissions.AllowAny,),

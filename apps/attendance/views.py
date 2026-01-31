@@ -1,11 +1,18 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action
 from .models import Attendance
-from .serializers import AttendanceSerializer
+from .serializers import (
+    AttendanceSerializer, 
+    StudentListSerializer,
+    BulkAttendanceSerializer
+)
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.db import transaction
 from apps.groups.models import Group
+from apps.users.models import User
 from django.core.exceptions import ObjectDoesNotExist
 
 class AttendanceViewSet(viewsets.ViewSet):
@@ -103,6 +110,55 @@ class AttendanceViewSet(viewsets.ViewSet):
         else:
             return Response({"can_attend": True}, status=status.HTTP_200_OK)
 
+    def get_group_students_attendance(self, request, group_id, date):
+        """
+        GET /api/attendance/group/{group_id}/{date}/
+        Guruh bo'yicha o'quvchilarni davomat ma'lumotlari bilan qaytaradi.
+        
+        Qulflab qo'yish qoidasi:
+        - Agar sana o'tmish bo'lsa: qulflab qo'yadi (is_locked: true)
+        - Agar sana o'tmish bo'lsa va hamma o'quvchi davomat qo'shilgan bo'lsa: qulflab qo'yadi
+        - Agar sana bugungi kun yoki kelajak bo'lsa va davomat qo'shilmagan bo'lsa: o'chirib qo'yadi (is_locked: false)
+        """
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({"detail": "Group not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            attendance_date = timezone.datetime.strptime(date, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            return Response({"detail": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        today = timezone.now().date()
+        
+        # Guruhdagi barcha o'quvchilarni olish
+        students = group.students.all()
+        
+        # Serializer'ga context qo'shish
+        serializer = StudentListSerializer(
+            students,
+            many=True,
+            context={'date': attendance_date}
+        )
+        
+        # is_locked statusini aniqlash
+        # Agar o'tmish sana bo'lsa - qulflab qo'yish
+        if attendance_date < today:
+            is_locked = True
+        else:
+            # Bugungi kun yoki kelajak - hamma o'quvchi uchun davomat qo'shilgan bo'lsa qulflab qo'yish
+            all_attended = all(student['is_attendance_locked'] for student in serializer.data)
+            is_locked = all_attended
+        
+        return Response({
+            "count": students.count(),
+            "date": attendance_date,
+            "is_locked": is_locked,
+            "can_edit": not is_locked,
+            "students": serializer.data
+        }, status=status.HTTP_200_OK)
+
     def retrieve(self, request, group_id, date):
         group = get_object_or_404(Group, id=group_id)
         attendance_date = timezone.datetime.strptime(date, '%Y-%m-%d').date()
@@ -115,31 +171,164 @@ class AttendanceViewSet(viewsets.ViewSet):
             return Response({"detail": "Attendance record not found."}, status=status.HTTP_404_NOT_FOUND)
 
     def create(self, request):
-        # Quick duplicate check before creating: if the user already attended for the provided group/date reject.
-        # We attempt to read group/date from the incoming data; serializer validation remains authoritative.
-        group_val = request.data.get("group") or request.data.get("group_id")
-        date_val = request.data.get("date")
+        """
+        Yangi davomat qo'shish - bitta so'rovda ko'p studentlarni qabul qiladi.
+        
+        Request format:
+        {
+            "group_id": 1,
+            "date": "2026-01-31",
+            "students": [
+                {
+                    "id": "user_id_1",
+                    "status": "present",  // 'present' (kelgan), 'absent' (kelmagan), 'excuse' (sababli)
+                    "reason": "Kasal edi",  // optional, faqat 'excuse' bo'lsa kerak
+                    "coins": 50  // optional, max 100
+                },
+                {
+                    "id": "user_id_2",
+                    "status": "absent",
+                    "coins": 0
+                }
+            ]
+        }
+        """
+        serializer = BulkAttendanceSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        group_id = serializer.validated_data['group_id']
+        attendance_date = serializer.validated_data['date']
+        students_data = serializer.validated_data['students']
+        
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response(
+                {"detail": "Guruh topilmadi."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        results = {
+            "success": [],
+            "errors": [],
+            "total_coins_added": 0
+        }
+        
+        # Transaction ichida barchasini saqlaymiz
+        with transaction.atomic():
+            for student_data in students_data:
+                user_id = student_data.get('id')
+                status_val = student_data.get('status')
+                reason = student_data.get('reason', '')
+                coins = int(student_data.get('coins', 0))
+                
+                # Validacija
+                if not user_id or not status_val:
+                    results['errors'].append({
+                        'student_id': user_id,
+                        'detail': 'id va status majburiy.'
+                    })
+                    continue
+                
+                if status_val not in ['present', 'absent', 'excuse']:
+                    results['errors'].append({
+                        'student_id': user_id,
+                        'detail': f"Status '{status_val}' noto'g'ri. Qabul qilingan qiymatlar: present, absent, excuse"
+                    })
+                    continue
+                
+                # Sababli bo'lsa, sababni tekshirish
+                if status_val == 'excuse':
+                    if not reason or reason.strip() == '':
+                        results['errors'].append({
+                            'student_id': user_id,
+                            'detail': "Sababli bo'lsa, 'reason' majburiy."
+                        })
+                        continue
+                else:
+                    # Kelgan yoki kelmagan bo'lsa, reason bo'sh bo'lishi kerak
+                    reason = ''
+                
+                # Ballni tekshirish (max 100)
+                if coins < 0 or coins > 100:
+                    results['errors'].append({
+                        'student_id': user_id,
+                        'detail': f"Balllar 0 dan 100 gacha bo'lishi kerak, berilgan: {coins}"
+                    })
+                    continue
+                
+                # User mavjudligini tekshirish
+                try:
+                    user = User.objects.get(id=user_id)
+                except User.DoesNotExist:
+                    results['errors'].append({
+                        'student_id': user_id,
+                        'detail': "Foydalanuvchi topilmadi."
+                    })
+                    continue
+                
+                # O'sha kun uchun davomat allaqachon bo'lganmi tekshirish
+                existing_attendance = Attendance.objects.filter(
+                    group_id=group_id,
+                    user_id=user_id,
+                    date=attendance_date
+                ).first()
+                
+                if existing_attendance:
+                    results['errors'].append({
+                        'student_id': user_id,
+                        'detail': f"Bu kun ({attendance_date}) uchun davomat allaqachon qayd qilingan.",
+                        'existing_record_id': existing_attendance.id
+                    })
+                    continue
+                
+                # Davomat qo'shish
+                try:
+                    attendance = Attendance.objects.create(
+                        group_id=group_id,
+                        user_id=user_id,
+                        date=attendance_date,
+                        status=status_val,
+                        reason=reason if status_val == 'excuse' else '',
+                        coins=coins
+                    )
+                    
+                    # Agar 'kelgan' bo'lsa, balllar qo'shish
+                    if status_val == 'present' and coins > 0:
+                        user.coins = (user.coins or 0) + coins
+                        user.save()
+                        results['total_coins_added'] += coins
+                    
+                    results['success'].append({
+                        'student_id': user_id,
+                        'username': user.username,
+                        'status': status_val,
+                        'coins_added': coins if status_val == 'present' else 0,
+                        'attendance_id': attendance.id
+                    })
+                except Exception as e:
+                    results['errors'].append({
+                        'student_id': user_id,
+                        'detail': f"Xatolik: {str(e)}"
+                    })
+        
+        return Response(results, status=status.HTTP_201_CREATED)
 
-        # Try to resolve group; if resolved, use it for pre-check and normalize payload for serializer
-        resolved_group = self._resolve_group(group_val) if group_val else None
+    def update(self, request, pk=None):
+        """
+        Update'ni yoplab qo'yish - davomat qo'shilgandan keyin o'zgartirib bo'lmaydi.
+        """
+        return Response(
+            {"detail": "Davomat qo'shilgandan keyin uni o'zgartirib bo'lmaydi. Agar o'zgartirish kerak bo'lsa, avval o'chirib keyin yangi qo'shishingiz kerak."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
 
-        if resolved_group and date_val:
-            try:
-                attendance_date = timezone.datetime.strptime(date_val, "%Y-%m-%d").date()
-                attendance_record = Attendance.objects.filter(group_id=resolved_group.id if isinstance(resolved_group, Group) else resolved_group, date=attendance_date).first()
-                if self._user_already_attended(attendance_record, resolved_group, attendance_date, request.user):
-                    return Response({"detail": "You have already attended on this date."}, status=status.HTTP_400_BAD_REQUEST)
-            except (ValueError, TypeError):
-                # let serializer handle invalid date if present
-                pass
-
-        # normalize data so serializer receives group as an id if we resolved it
-        data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
-        if resolved_group:
-            data['group'] = resolved_group.id
-
-        serializer = AttendanceSerializer(data=data, context={"request": request})
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def partial_update(self, request, pk=None):
+        """
+        Partial update'ni yoplab qo'yish.
+        """
+        return Response(
+            {"detail": "Davomat qo'shilgandan keyin uni o'zgartirib bo'lmaydi. Agar o'zgartirish kerak bo'lsa, avval o'chirib keyin yangi qo'shishingiz kerak."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )

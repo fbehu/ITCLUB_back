@@ -9,14 +9,14 @@ class UserAdmin(BaseUserAdmin):
     form = CustomUserChangeForm
     add_form = CustomUserCreationForm
 
-    list_display = ('uuid', 'username', 'phone_number', 'email', 'is_active', 'is_staff')
-    list_filter = ('is_staff', 'is_superuser', 'is_active', 'role', 'uuid')
+    list_display = ('username', 'phone_number', 'email', 'is_active', 'is_staff')
+    list_filter = ('is_staff', 'is_superuser', 'is_active', 'role')
 
     fieldsets = (
         (None, {'fields': ('username', 'phone_number', 'password')}),
         ('Personal info', {'fields': ('first_name', 'last_name',  'email', 'photo')}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
-        ('Additional', {'fields': ('role', 'level', 'course', 'direction', 'coins', 'tg_username', 'uuid', 'image_qrkod')}),
+        ('Additional', {'fields': ('role', 'level', 'social', 'coins', 'tg_username', 'invite_code', 'parent_phone_number')}),
         ('Important dates', {'fields': ('last_login', 'created_at', 'updated_at')}),
     )
 
@@ -29,7 +29,7 @@ class UserAdmin(BaseUserAdmin):
 
     readonly_fields = ('last_login', 'created_at', 'updated_at')
 
-    search_fields = ('phone_number', 'username', 'email', 'uuid')
+    search_fields = ('phone_number', 'username', 'email')
     ordering = ('phone_number',)
     filter_horizontal = ('groups', 'user_permissions')
 

@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-&gis75^+e$m4#f66)h%szqim!l$yvr5qj_i#8)+s!)y1-abrba
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["itclub.cyberrs.uz", "ubsitclub.uz", "www.ubsitclub.uz", "api.ubsitclub.uz", "127.0.0.1", "localhost", "91.210.106.114"]
+ALLOWED_HOSTS = ["universe.onedu.uz", "universe.uz", "www.universe.uz", "admin.onedu.uz", "127.0.0.1", "localhost"]
 
 
 # Application definition
@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "apps.groups",
     "apps.attendance",
     "apps.news",
+    "apps.certificates",
 
     # Swagger
     "drf_yasg",
@@ -75,11 +76,9 @@ MIDDLEWARE = [
 
 # CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = [
-    "https://ubsitclub.uz",
-    "https://www.ubsitclub.uz",
-    "https://api.ubsitclub.uz",
-    "http://91.210.106.114",
-    "https://itclub.cyberrs.uz",
+    "https://universe.onedu.uz",
+    "https://www.universe.uz",
+    "https://admin.onedu.uz",
     "http://127.0.0.1:8080",
     "http://localhost:8080",
 ]
@@ -93,7 +92,7 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
-    'range',  # bu audio stream uchun juda muhim!
+    'range', 
 ]
 AUTHENTICATION_BACKENDS = [
     'apps.users.backends.UsernameOrPhoneBackend',
@@ -126,25 +125,25 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # PostgreSQL uchun sozlama
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'itclubbase',
-        'USER': 'root',
-        'PASSWORD': 'Cyber_992398981itclub',
-        'HOST': '127.0.0.1',  # ENG MUHIM! localhost emas
-        'PORT': '5432',
-    }
-}
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'itclubbase',
+#         'USER': 'root',
+#         'PASSWORD': 'Cyber_992398981itclub',
+#         'HOST': '127.0.0.1',  # ENG MUHIM! localhost emas
+#         'PORT': '5432',
+#     }
+# }
 
 
 # Sqlite uchun sozlama
-# DATABASES = {   
-#    'default': {
-#        'ENGINE': 'django.db.backends.sqlite3',
-#        'NAME': BASE_DIR / 'db.sqlite3',
-#    }
-# }
+DATABASES = {   
+   'default': {
+       'ENGINE': 'django.db.backends.sqlite3',
+       'NAME': BASE_DIR / 'db.sqlite3',
+   }
+}
 
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -159,8 +158,8 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "UBS IT CLUB API",
-    "DESCRIPTION": "UBS IT Club uchun platform backend API",
+    "TITLE": "Univerce School API",
+    "DESCRIPTION": "Univerce School uchun platform backend API",
     "VERSION": "0.0.1",
     "SERVE_INCLUDE_SCHEMA": False,
 }

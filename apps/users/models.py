@@ -16,23 +16,22 @@ class User(AbstractUser):
         ('expert', 'Expert'),
     )
 
-    COURSES = (
-        ('kurs-1', '1-kurs'),
-        ('kurs-2', '2-kurs'),
-        ('kurs-3', '3-kurs'),
-        ('kurs-4', '4-kurs'),
-        ('kurs-5', '5-kurs'),
+    SOCIAL = (
+        ('instagram', 'Instagram'),
+        ('telegram', 'Telegram'),
+        ('facebook', 'Facebook'),
+        ('friend', 'Do\'st'),
+        ('other', 'Boshqa'),
     )
-    # Primary key as a UUID. Ensure the DB stores UUID strings (36 chars) before switching.
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    uuid = models.CharField(max_length=7, unique=True, null=True, blank=True, verbose_name="QR UUID")
-    image_qrkod = models.ImageField(upload_to='qr_codes/', null=True, blank=True, verbose_name="QR code image")
-    phone_number = models.CharField(max_length=20, blank=True, unique=True, verbose_name="Phone number")
-    tg_username = models.CharField(max_length=150, blank=True, verbose_name="Telegram username")
-    level = models.CharField(choices=LEVELS, max_length=50, blank=True, verbose_name="Level")
-    course = models.CharField(choices=COURSES, max_length=50, blank=True, verbose_name="Course")
-    direction = models.CharField(max_length=255, blank=True, verbose_name="Direction")
-    coins = models.IntegerField(default=0, verbose_name="Coins")
+    phone_number = models.CharField(max_length=20, verbose_name="Phone number")
+    parent_phone_number = models.JSONField(null=True, blank=True, verbose_name="Parent phone numbers")
+    tg_username = models.CharField(max_length=150, blank=True, null=True, verbose_name="Telegram username")
+    level = models.CharField(choices=LEVELS, max_length=50, blank=True, null=True, verbose_name="Level")
+    social = models.CharField(choices=SOCIAL, max_length=255, blank=True, null=True, verbose_name="Social source")
+    invite_code = models.CharField(max_length=50, blank=True,null=True, verbose_name="Invite code (PROMOKOD)")
+    coins = models.IntegerField(default=0, verbose_name="Ball (0/100)", blank=True, null=True)
     photo = models.ImageField(upload_to="user_photos/", null=True, blank=True)
 
     role = models.CharField(choices=ROLES, max_length=50, default='student', verbose_name="Foydalanuvchi roli")

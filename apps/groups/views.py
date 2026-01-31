@@ -20,8 +20,8 @@ class GroupsViewSet(viewsets.ModelViewSet):
     """
     serializer_class = GroupSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['name', 'smena']
-    search_fields = ['name', 'smena']
+    filterset_fields = ['name','start_time']
+    search_fields = ['name','start_time']
     ordering_fields = ['created_at', 'name', 'start_time']
     permission_classes = [IsAuthenticated]
 
@@ -96,8 +96,8 @@ class GroupsViewSet(viewsets.ModelViewSet):
         if request.method == 'GET':
             # Barcha rol'dagi userlar o'quvchilarni ko'rishi mumkin
             students = group.students.all()
-            from apps.users.serializers import UserSerializer
-            serializer = UserSerializer(students, many=True, context={'request': request})
+            from apps.users.serializers import StudentListSerializer
+            serializer = StudentListSerializer(students, many=True, context={'request': request})
             return Response({
                 "count": students.count(),
                 "students": serializer.data
@@ -262,7 +262,7 @@ class GroupsViewSet(viewsets.ModelViewSet):
         # O'quvchi maqsadli guruhda borligini tekshirish
         if target_group.students.filter(id=student.id).exists():
             return Response(
-                {"detail": "O'quvchi allaqachon maqsadli guruhda mavjud"},
+                {"detail": "O'quvchi allaqachon bu guruhda mavjud"},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -283,3 +283,73 @@ class GroupsViewSet(viewsets.ModelViewSet):
                 "name": target_group.name
             }
         }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'], url_path='available-students')
+    def available_students(self, request, pk=None):
+        """
+        GET: Shu guruhda yo'q va boshqa guruhga qo'shilmagan o'quvchilarni ko'rsatadi
+        Faqat admin qila oladi
+        50 ta o'quvchi uchun pagination
+        
+        GET /api/groups/{group_id}/available-students/?page=1&search=Ali
+        """
+        # Faqat admin qila oladi
+        if request.user.role != 'admin':
+            return Response(
+                {"detail": "Bu funksiyani faqatgina admin qila oladi."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        group = self.get_object()
+        
+        # Shu guruhda allaqachon bo'lgan o'quvchilar
+        group_students = set(group.students.values_list('id', flat=True))
+        
+        # Boshqa guruhlarda bo'lgan o'quvchilar
+        other_group_students = set(
+            User.objects.filter(
+                student_groups__isnull=False,
+                role='student'
+            ).exclude(id__in=group_students).values_list('id', flat=True).distinct()
+        )
+        
+        # Faqat student rol'dagi o'quvchilar va:
+        # 1. Shu guruhda yo'q
+        # 2. Boshqa guruhga qo'shilmagan
+        available_students = User.objects.filter(
+            role='student'
+        ).exclude(
+            id__in=group_students | other_group_students
+        ).order_by('first_name', 'last_name')
+        
+        # Search filtri
+        search_query = request.query_params.get('search', '').strip()
+        if search_query:
+            available_students = available_students.filter(
+                first_name__icontains=search_query
+            ) | available_students.filter(
+                last_name__icontains=search_query
+            ) | available_students.filter(
+                username__icontains=search_query
+            )
+        
+        # Pagination - 50 ta o'quvchi uchun
+        from rest_framework.pagination import PageNumberPagination
+        
+        class StudentsPagination(PageNumberPagination):
+            page_size = 50
+            page_size_query_param = 'page_size'
+            max_page_size = 100
+        
+        paginator = StudentsPagination()
+        paginated_students = paginator.paginate_queryset(available_students, request)
+        
+        from apps.users.serializers import StudentListSerializer
+        serializer = StudentListSerializer(
+            paginated_students, 
+            many=True, 
+            context={'request': request}
+        )
+        
+        return paginator.get_paginated_response(serializer.data)
+

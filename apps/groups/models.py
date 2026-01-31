@@ -1,8 +1,5 @@
 from django.db import models
-from django.contrib.auth import get_user_model
 from apps.common.models import Basemodel
-
-User = get_user_model()
 
 class Group(Basemodel):
     """
@@ -17,13 +14,15 @@ class Group(Basemodel):
         ('saturday', 'Shanba'),
         ('sunday', 'Yakshanba'),
     ]
+
     name = models.CharField(max_length=255, verbose_name="Guruh nomi")
-    smena = models.CharField(max_length=500, verbose_name="Guruh Smenasi", blank=True)
-    start_time = models.CharField(max_length=20, blank=True, null=True)
+    start_time = models.CharField(max_length=20)
+    end_time = models.CharField(max_length=20)
+    class_days = models.JSONField(default=list, blank=True, null=True, verbose_name="Dars kunlari (Du, Chor, Ju | Se, Pa, Sha)")
     
     # Teacher (o'qituvchi) - Foreign Key
     teacher = models.ForeignKey(
-        User,
+        'users.User',
         on_delete=models.CASCADE,
         related_name='teaching_groups',
         limit_choices_to={'role': 'teacher'},
@@ -34,7 +33,7 @@ class Group(Basemodel):
     
     # Add students relation (many-to-many to User, limited to students)
     students = models.ManyToManyField(
-        User,
+        'users.User',
         blank=True,
         related_name='student_groups',
         limit_choices_to={'role': 'student'},

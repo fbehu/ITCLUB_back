@@ -22,8 +22,8 @@ class GroupsViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all().order_by('-created_at')
     serializer_class = GroupSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['name', 'smena']
-    search_fields = ['name', 'smena']
+    filterset_fields = ['name']
+    search_fields = ['name']
     ordering_fields = ['created_at', 'name', 'start_time']
 
     def get_permissions(self):

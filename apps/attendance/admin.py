@@ -1,5 +1,4 @@
 from django.contrib import admin
-from .models import Group, Attendance
+from .models import Attendance
 
-admin.site.register(Group)
 admin.site.register(Attendance)

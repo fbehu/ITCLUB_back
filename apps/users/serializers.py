@@ -3,10 +3,10 @@ import mimetypes
 import base64
 from django.conf import settings
 from rest_framework import serializers
-from django.contrib.auth import authenticate
 from .models import User
 from drf_extra_fields.fields import Base64ImageField
 from rest_framework_simplejwt.tokens import RefreshToken
+from apps.groups.models import Group
 
 
 def create_custom_jwt_for_user(user):
@@ -41,7 +41,8 @@ class ImageToBase64Field(serializers.ImageField):
 #  USER SERIALIZER
 # ============================
 class UserSerializer(serializers.ModelSerializer):
-    image_qrkod = serializers.SerializerMethodField()
+    student_groups = serializers.SerializerMethodField()
+    teaching_groups = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -50,13 +51,14 @@ class UserSerializer(serializers.ModelSerializer):
             "username",
             "first_name",
             "last_name",
-            "uuid",
-            "image_qrkod",
             "phone_number",
+            "parent_phone_number",
             "tg_username",
             "level",
-            "course",
-            "direction",
+            "student_groups",
+            "teaching_groups",
+            "social",
+            "invite_code",
             "coins",
             "photo",
             "role",
@@ -65,59 +67,39 @@ class UserSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
-    def get_image_qrkod(self, obj):
-        """
-        Return base64 data URI for QR image:
-        - Prefer file in MEDIA_ROOT/qrcodesall whose filename starts with obj.uuid (e.g. ITC100.png)
-        - Fallback to obj.image_qrkod (ImageField) if present
-        - Return None if no image available
-        """
-        # prefer uuid-based file lookup
-        uuid_val = getattr(obj, "uuid", None)
-        qr_dir = os.path.join(settings.MEDIA_ROOT, "qrcodesall")
+    def get_student_groups(self, obj):
+        """Student bo'lsa, qaysi guruhlarda o'qiyotganini qaytaradi"""
+        if obj.role == 'student':
+            groups = obj.student_groups.all()
+            return [{"id": g.id, "name": g.name} for g in groups]
+        return []
+    
+    def get_teaching_groups(self, obj):
+        """Teacher bo'lsa, qaysi guruhlarda o'qitayotganini qaytaradi"""
+        if obj.role == 'teacher':
+            groups = obj.teaching_groups.all()
+            return [{"id": g.id, "name": g.name} for g in groups]
+        return []
 
-        def _encode_file(path):
-            try:
-                with open(path, "rb") as f:
-                    data = f.read()
-                mime, _ = mimetypes.guess_type(path)
-                if not mime:
-                    mime = "application/octet-stream"
-                b64 = base64.b64encode(data).decode("utf-8")
-                return f"data:{mime};base64,{b64}"
-            except Exception:
-                return None
 
-        if uuid_val:
-            try:
-                for fname in os.listdir(qr_dir):
-                    if fname.startswith(str(uuid_val)):
-                        full = os.path.join(qr_dir, fname)
-                        if os.path.isfile(full):
-                            return _encode_file(full)
-            except FileNotFoundError:
-                pass  # qrcodesall folder not present
-
-        # fallback: use image_qrkod ImageField on the model if set
-        image_field = getattr(obj, "image_qrkod", None)
-        if image_field:
-            try:
-                path = image_field.path
-                if os.path.isfile(path):
-                    return _encode_file(path)
-            except Exception:
-                # image_field may be a URL-only field or missing file
-                try:
-                    # try to resolve by MEDIA_ROOT + name
-                    name = getattr(image_field, "name", None)
-                    if name:
-                        path = os.path.join(settings.MEDIA_ROOT, name)
-                        if os.path.isfile(path):
-                            return _encode_file(path)
-                except Exception:
-                    pass
-
-        return None
+# ============================
+#  STUDENT LIST SERIALIZER (guruhda o'quvchilarni ko'rsatish uchun)
+# ============================
+class StudentListSerializer(serializers.ModelSerializer):
+    """Guruhga tegishli o'quvchilarning kerakli ma'lumotlarini qaytaradi"""
+    
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "username",
+            "phone_number",
+            "coins",
+            "level",
+            "photo",
+        ]
 
 
 # ============================
@@ -125,6 +107,12 @@ class UserSerializer(serializers.ModelSerializer):
 # ============================
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=6)
+    groups = serializers.PrimaryKeyRelatedField(
+        queryset=Group.objects.all(), 
+        many=True, 
+        required=False,
+        help_text="Student uchun: qo'shilish kerak bo'lgan guruhlar ID'lari. Teacher uchun: o'qitaydigan guruhlar ID'lari."
+    )
 
     class Meta:
         model = User
@@ -132,81 +120,58 @@ class RegisterSerializer(serializers.ModelSerializer):
             "username",
             "first_name",
             "last_name",
-            "uuid",
             "level",
-            "course",
+            "groups",
             "tg_username",
-            "direction",
+            "social",
+            "coins",
+            "invite_code",
             "phone_number",
+            "parent_phone_number",
+            "role",
             "password",
         ]
 
     def validate(self, attrs):
         username = attrs.get("username")
         phone_number = attrs.get("phone_number")
-        uuid = attrs.get("uuid")
 
         if User.objects.filter(username=username).exists():
             raise serializers.ValidationError({"username": "❌ Bu username allaqachon ro'yxatdan o'tgan."})
 
         if User.objects.filter(phone_number=phone_number).exists():
             raise serializers.ValidationError({"phone_number": "❌ Bu telefon raqam allaqachon ro'yxatdan o'tgan."})
-
-        if User.objects.filter(uuid=uuid).exists():
-            raise serializers.ValidationError({"uuid": "❌ Bu QR kod allaqachon boshqa user uchun ishlatilgan."})
-
         return attrs
 
     def create(self, validated_data):
+        groups_data = validated_data.pop("groups", [])
         user = User.objects.create_user(
             username=validated_data.get("username"),
             first_name=validated_data.get("first_name"),
             last_name=validated_data.get("last_name"),
-            uuid=validated_data.get("uuid"),
-            level=validated_data.get("level"),
-            course=validated_data.get("course"),
-            direction=validated_data.get("direction"),
             phone_number=validated_data.get("phone_number"),
+            parent_phone_number=validated_data.get("parent_phone_number"),
+            tg_username=validated_data.get("tg_username"),
+            level=validated_data.get("level"),
+            social=validated_data.get("social"),
+            invite_code=validated_data.get("invite_code"),
+            coins=validated_data.get("coins"),
+            role=validated_data.get("role"),
             password=validated_data.get("password"),
         )
+        
+        # Agarda guruhlaar belgilangan bo'lsa, user'ni o'sha guruhlarga qo'shish
+        if groups_data:
+            if user.role == 'student':
+                # Student uchun student_groups'ga qo'shish
+                user.student_groups.set(groups_data)
+            elif user.role == 'teacher':
+                # Teacher uchun teaching_groups'ga qo'shish
+                for group in groups_data:
+                    group.teacher = user
+                    group.save()
+        
         return user
-
-
-# ============================
-#  LOGIN SERIALIZER
-# ============================
-class LoginSerializer(serializers.Serializer):
-    username_or_phone = serializers.CharField()
-    password = serializers.CharField(write_only=True)
-
-    def validate(self, data):
-        username_or_phone = data.get("username_or_phone")
-        password = data.get("password")
-
-        user = authenticate(phone_number=username_or_phone, password=password)
-
-        if not user:
-            user = authenticate(username=username_or_phone, password=password)
-
-        if not user:
-            raise serializers.ValidationError("Login yoki parol noto'g'ri")
-
-        data["user"] = user
-        return data
-
-
-# ============================
-#  PASSWORD CHANGE SERIALIZER
-# ============================
-class ChangePasswordSerializer(serializers.Serializer):
-    old_password = serializers.CharField(write_only=True, required=True)
-    new_password = serializers.CharField(write_only=True, required=True)
-    confirm_password = serializers.CharField(write_only=True, required=True)
-
-    def validate(self, attrs):
-        if attrs.get("new_password") != attrs.get("confirm_password"):
-            raise serializers.ValidationError({"new_password": "Yangi parollar mos emas."})
-        return attrs
 
 
 # ============================
